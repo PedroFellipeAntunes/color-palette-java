@@ -12,17 +12,14 @@ public class Palette {
     private final int modeQuantity;
     
     /**
-     * Constructs a new Palette with the given initial colors, channel ranges,
-     * and maximum hue mode quantity.
+     * Create a new Palette from initial colors, channel ranges, and a maximum
+     * hue mode count.
      *
-     * @param initial An array of ColorData representing the starting palette
-     * colors.
-     * @param ranges An array of three ChannelRange objects defining valid
-     * intervals for L, C, and H channels.
-     * @param modeQuantity The maximum number of hue segments (1 to
-     * modeQuantity) for gradient generation.
-     * @throws IllegalArgumentException if initial is empty, ranges length is
-     * not 3 or modeQuantity is lower than 1.
+     * @param initial starting array of OKLCh colors
+     * @param ranges array of three ChannelRange intervals for L, C, and H
+     * @param modeQuantity maximum number of hue segments (must be ≥ 1)
+     * @throws IllegalArgumentException if initial is empty, ranges length ≠ 3,
+     * or modeQuantity less than 1
      */
     public Palette(ColorData[] initial, ChannelRange[] ranges, int modeQuantity) {
         if (initial.length == 0 || ranges.length != 3 || modeQuantity < 1) {
@@ -42,89 +39,8 @@ public class Palette {
     }
     
     /**
-     * Generates a new palette gradient by:
-     * 1) Resetting to the original colors,
-     * 2) Randomly choosing 1–modeQuantity hue segments (up to palette size),
-     * 3) Picking a random start hue and direction (clockwise/CCW),
-     * 4) Dividing the palette into segments and interpolating hue within each,
-     * 5) Setting chroma to a single random value across all colors.
-     */
-    public void generateComplex() {
-        resetAll();
-        
-        ThreadLocalRandom rnd = ThreadLocalRandom.current();
-        int n = this.data.length;
-        
-        int maxModes = Math.min(modeQuantity, n);
-        int modes = rnd.nextInt(1, maxModes + 1);
-        
-        float hueStart = rnd.nextFloat(0f, 360f);
-        
-        boolean clockwise = rnd.nextBoolean();
-        
-        int colorsPerSegment = n / modes;
-        float[][] hueRanges = new float[modes][2];
-        
-        for (int m = 0; m < modes; m++) {
-            float start = (hueStart + m * (360f / modes));
-            float end = (hueStart + (m + 1) * (360f / modes));
-            
-            hueRanges[m][0] = (start % 360f + 360f) % 360f;
-            hueRanges[m][1] = (end % 360f + 360f) % 360f;
-        }
-        
-        float chroma = rnd.nextFloat(ranges[1].getMin(), ranges[1].getMax());
-        
-        for (int i = 0; i < n; i++) {
-            ColorData cd = this.data[i];
-            cd.setY(chroma);
-            
-            int segment = Math.min(i / colorsPerSegment, modes - 1);
-            float h0 = hueRanges[segment][0];
-            float h1 = hueRanges[segment][1];
-            
-            float span;
-            
-            if (clockwise) {
-                span = (h1 >= h0) ? (h1 - h0) : (h1 + 360f - h0);
-            } else { // Counter Clock Wise
-                span = (h0 >= h1) ? (h0 - h1) : (h0 + 360f - h1);
-            }
-            
-            int idxInSegment = i - segment * colorsPerSegment;
-            int countInSegment = (segment == modes - 1)
-                    ? (n - segment * colorsPerSegment)
-                    : colorsPerSegment;
-
-            float hue;
-            
-            if (countInSegment <= 1) {
-                hue = h0;
-            } else {
-                float stepHue = span / (countInSegment - 1);
-                
-                if (clockwise) {
-                    hue = (h0 + stepHue * idxInSegment) % 360f;
-                } else {
-                    hue = (h0 - stepHue * idxInSegment) % 360f;
-                    
-                    if (hue < 0) {
-                        hue += 360f;
-                    }
-                }
-            }
-
-            cd.setZ(hue);
-        }
-    }
-    
-    /**
-     * Generates a new palette gradient by:
-     * 1) Resetting to the original colors,
-     * 2) Randomly choosing 1–modeQuantity hue segments (up to palette size),
-     * 3) Picking a random start hue,
-     * 4) Dividing the palette into segments,
-     * 5) Setting chroma to a single random value across all colors.
+     * Generate a new palette by selecting random hue segments and a uniform
+     * chroma, then assigning each block of colors to one of the segments.
      */
     public void generate() {
         resetAll();
@@ -132,7 +48,7 @@ public class Palette {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
         int n = data.length;
         
-        int maxModes = n;//Math.min(modeQuantity, n);
+        int maxModes = Math.min(modeQuantity, n);
         int modes = rnd.nextInt(1, maxModes + 1);
         
         float hueStart = rnd.nextFloat(0f, 360f);
@@ -173,11 +89,101 @@ public class Palette {
     }
     
     /**
-     * Randomizes every channel (X, Y, Z) of the index color in the palette
-     * independently.Each channel value is chosen uniformly within its 
-     * configured ChannelRange.
-     * 
-     * @param index Index for the color to be randomized.
+     * Generate a smoothly interpolated palette by choosing random key hues and
+     * chroma, then linearly interpolating OKLab lightness and hue between keys.
+     */
+    public void generateInterpolated() {
+        resetAll();
+
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        int n = data.length;
+        
+        if (n < 1) {
+            return;
+        }
+        
+        int maxModes = Math.min(n, modeQuantity);
+        int modes = rnd.nextInt(1, maxModes + 1);
+        
+        float chroma = rnd.nextFloat(ranges[1].getMin(), ranges[1].getMax());
+        
+        float hueStart = rnd.nextFloat(0f, 360f);
+        boolean cw = rnd.nextBoolean();
+        
+        float[] keyHues = new float[modes];
+        float step = 360f / modes;
+        
+        for (int i = 0; i < modes; i++) {
+            float raw = cw ? hueStart + i * step : hueStart - i * step;
+            
+            keyHues[i] = ((raw % 360f) + 360f) % 360f;
+        }
+        
+        if (modes == 1) {
+            for (int i = 0; i < n; i++) {
+                data[i].setY(chroma);
+                data[i].setZ(keyHues[0]);
+            }
+            
+            return;
+        }
+        
+        int[] keyPos = new int[modes];
+        
+        for (int i = 0; i < modes; i++) {
+            float p = i * (n - 1f) / (modes - 1f);
+            
+            keyPos[i] = Math.round(p);
+        }
+        
+        for (int i = 0; i < modes; i++) {
+            int pos = keyPos[i];
+            
+            data[pos].setY(chroma);
+            data[pos].setZ(keyHues[i]);
+        }
+        
+        for (int seg = 0; seg < modes - 1; seg++) {
+            int startIdx = keyPos[seg];
+            int endIdx = keyPos[seg + 1];
+            int span = endIdx - startIdx;
+
+            ColorData labStart = new ColorData(
+                    data[startIdx].getX(),
+                    data[startIdx].getY(),
+                    data[startIdx].getZ()
+            ).oklchToOklab();
+            
+            ColorData labEnd = new ColorData(
+                    data[endIdx].getX(),
+                    data[endIdx].getY(),
+                    data[endIdx].getZ()
+            ).oklchToOklab();
+
+            for (int j = 1; j < span; j++) {
+                float t = (float) j / span;
+                
+                float L = labStart.getX() + t * (labEnd.getX() - labStart.getX());
+                float a = labStart.getY() + t * (labEnd.getY() - labStart.getY());
+                float b = labStart.getZ() + t * (labEnd.getZ() - labStart.getZ());
+                
+                ColorData interpolated = new ColorData(L, a, b)
+                        .oklabToOklch();
+                
+                int idx = startIdx + j;
+                
+                data[idx].setX(interpolated.getX());
+                data[idx].setY(interpolated.getY());
+                data[idx].setZ(interpolated.getZ());
+            }
+        }
+    }
+    
+    /**
+     * Randomize all three OKLCh channels of the specified color independently
+     * within their configured ranges.
+     *
+     * @param index index of the color to randomize
      */
     public void randomSingle(int index) {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
@@ -194,9 +200,8 @@ public class Palette {
     }
     
     /**
-     * Randomizes every channel (X, Y, Z) of each color in the palette
-     * independently. Each channel value is chosen uniformly within its
-     * configured ChannelRange.
+     * Randomize all three OKLCh channels of every color in the palette
+     * independently within their configured ranges.
      */
     public void randomAll() {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
@@ -217,8 +222,8 @@ public class Palette {
     }
     
     /**
-     * Inverts the hue of every color in the palette by 180 degrees, wrapping
-     * around the 0–360° color circle.
+     * Invert the hue of every color in the palette by 180°, wrapping around
+     * 360°.
      */
     public void invert() {
         for (ColorData color : data) {
@@ -228,9 +233,10 @@ public class Palette {
     }
     
     /**
-     * Resets the color back to its original provided at construction.
-     * 
-     * @param index Index for the color to be reset to original.
+     * Reset the specified color back to its original value provided at
+     * construction.
+     *
+     * @param index index of the color to reset
      */
     public void reset(int index) {
         data[index].setX(original[index].getX());
@@ -239,7 +245,8 @@ public class Palette {
     }
     
     /**
-     * Resets the palette back to its original colors provided at construction.
+     * Reset the entire palette back to the original colors provided at
+     * construction.
      */
     public void resetAll() {
         for (int i = 0; i < data.length; i++) {
@@ -250,20 +257,33 @@ public class Palette {
     }
     
     /**
-     * Converts the current palette colors to an array of AWT Color objects.
-     * Internally converts from OKLCh → OKLab → sRGB → 8-bit RGB.
+     * Convert the current OKLCh palette to an array of AWT Color instances.
+     * Performs OKLCh → OKLab → sRGB conversion and 8-bit quantization.
      *
-     * @return An array of java.awt.Color matching the palette.
+     * @return array of java.awt.Color matching this palette
      */
     public Color[] toAwtColors() {
         Color[] cols = new Color[data.length];
         
         for (int i = 0; i < data.length; i++) {
-            int[] rgb = data[i].oklchToOklab().oklabToRgb().toRgb255();
+            int[] rgb = data[i].oklchToRgb().toRgb255();
             cols[i] = new Color(rgb[0], rgb[1], rgb[2]);
         }
 
         return cols;
+    }
+    
+    /**
+     * Convert the specified OKLCh color to an AWT Color instance. Performs
+     * OKLCh → OKLab → sRGB conversion and 8-bit quantization.
+     *
+     * @param index index of the color to convert
+     * @return java.awt.Color corresponding to the palette color
+     */
+    public Color toAwtColor(int index) {
+        int[] rgb = data[index].oklchToRgb().toRgb255();
+
+        return new Color(rgb[0], rgb[1], rgb[2]);
     }
     
     public ColorData[] getData() {

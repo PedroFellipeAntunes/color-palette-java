@@ -5,37 +5,60 @@ public class ColorData {
     private float y;
     private float z;
     
+    private final int maxFallbackIterations = 20;
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Constructors
+    // ────────────────────────────────────────────────────────────────────────────
+
     /**
-     * Constructs a new ColorData with explicit channel values.
+     * Create a ColorData with normalized channels in [0..1].
      *
-     * @param x Channel X value or R in RGB (normalized)
-     * @param y Channel Y value or B in RGB (normalized)
-     * @param z Channel Z value or G in RGB (normalized)
+     * @param x channel X or red
+     * @param y channel Y or green
+     * @param z channel Z or blue
      */
     public ColorData(float x, float y, float z) {
         this.x = x;
         this.y = y;
         this.z = z;
     }
-    
+
     /**
-     * Constructs a new ColorData from 8-bit RGB components. Each component is
-     * normalized to [0..1] and clamped.
+     * Create a ColorData from RGB components.
+     * Values are normalized to [0..1] and clamped.
      *
-     * @param r Red component [0..255].
-     * @param g Green component [0..255].
-     * @param b Blue component [0..255].
+     * @param r red 0–255
+     * @param g green 0–255
+     * @param b blue 0–255
      */
     public ColorData(int r, int g, int b) {
         this.x = clamp01(r / 255f);
         this.y = clamp01(g / 255f);
         this.z = clamp01(b / 255f);
     }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Accessors
+    // ────────────────────────────────────────────────────────────────────────────
+
+    public float getX() { return x; }
+    public float getY() { return y; }
+    public float getZ() { return z; }
+
+    public void setX(float x) { this.x = x; }
+    public void setY(float y) { this.y = y; }
+    public void setZ(float z) { this.z = z; }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Conversion Methods
+    // ────────────────────────────────────────────────────────────────────────────
     
     /**
-     * Converts this color’s internal [0..1] channels to 8-bit RGB.
+     * Convert this normalized channels to non-normalized.
+     * Considers that this object is normalized RGB.
      *
-     * @return An int[3] array {r, g, b}, each in [0..255].
+     * @return int[3] {r, g, b} each in [0..255]
      */
     public int[] toRgb255() {
         int r = Math.round(clamp01(x) * 255f);
@@ -45,150 +68,138 @@ public class ColorData {
         return new int[]{r, g, b};
     }
     
-    public float getX() { return x; }
-    public float getY() { return y; }
-    public float getZ() { return z; }
-    
-    public void setX(float x) { this.x = x; }
-    public void setY(float y) { this.y = y; }
-    public void setZ(float z) { this.z = z; }
-    
-    @Override
-    public String toString() {
-        return String.format("(%.4f, %.4f, %.4f)", x, y, z);
-    }
-    
     /**
-     * Converts from sRGB [0..1] to OKLab (L, a, b) using Ottosson’s matrices
-     * and cubic transform.
+     * Convert this sRGB [0..1] to OKLab using Ottosson’s matrices.
      *
-     * @return A new ColorData containing OKLab components.
+     * @return new ColorData(L, a, b)
      */
     public ColorData rgbToOklab() {
         float r = invCompand(x);
         float g = invCompand(y);
         float b = invCompand(z);
-        
+
         float Lm =  0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
         float Mm =  0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
         float Sm =  0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b;
-        
-        float l_ = (float)Math.cbrt(Lm);
-        float m_ = (float)Math.cbrt(Mm);
-        float s_ = (float)Math.cbrt(Sm);
-        
+
+        float l_ = (float) Math.cbrt(Lm);
+        float m_ = (float) Math.cbrt(Mm);
+        float s_ = (float) Math.cbrt(Sm);
+
         float L =  0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_;
         float a =  1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_;
         float b_ = 0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_;
-        
+
         return new ColorData(L, a, b_);
     }
-    
+
     /**
-     * Converts from sRGB [0..1] to OKLab and expresses each component as a
-     * percentage: L in [0..100], a and b as ±100% of their ±0.4 range.
+     * Convert this OKLab (L, a, b) to OKLCh (L, C, H°).
      *
-     * @return A new ColorData containing percentage OKLab values.
-     */
-    public ColorData rgbToOklabPercent() {
-        ColorData ok = rgbToOklab();
-        
-        float L = ok.getX() * 100f;
-        float A = (ok.getY() / 0.4f) * 100f;
-        float B = (ok.getZ() / 0.4f) * 100f;
-        
-        return new ColorData(L, A, B);
-    }
-    
-    /**
-     * Converts from OKLab (L, a, b) to OKLCh (L, C, H°).
-     *
-     * @return A new ColorData containing L, chroma C, and hue H in degrees
-     * [0..360).
+     * @return new ColorData(L, C, H in degrees)
      */
     public ColorData oklabToOklch() {
-        float L = x;
-        float a = y;
-        float b = z;
+        float C = Math.min((float) Math.hypot(y, z), 0.37f);
+        float hRad = (float) Math.atan2(z, y);
+        float H = (hRad >= 0f
+            ? (float) Math.toDegrees(hRad)
+            : (float) Math.toDegrees(hRad) + 360f);
         
-        float C = (float)Math.hypot(a, b);
-        float hRad = (float)Math.atan2(b, a);
-        float H = (hRad >= 0f ? (float)Math.toDegrees(hRad) : (float)Math.toDegrees(hRad) + 360f);
-        
-        return new ColorData(L, C, H);
+        return new ColorData(x, C, H);
     }
-    
+
     /**
-     * Converts from OKLab to OKLCh and expresses each component as a
-     * percentage: L% in [0..100], C% relative to max ~0.4, H% of full 360°.
+     * Convert this OKLCh (L, C, H°) to OKLab (L, a, b).
      *
-     * @return A new ColorData containing percentage OKLCh values.
-     */
-    public ColorData oklabToOklchPercent() {
-        ColorData lch = oklabToOklch();
-        
-        float Lpct = lch.getX() * 100f;
-        float Cpct = (lch.getY() / 0.4f) * 100f;
-        float Hpct = (lch.getZ() / 360f) * 100f;
-        
-        return new ColorData(Lpct, Cpct, Hpct);
-    }
-    
-    /**
-     * Converts from OKLCh (L, C, H°) back to OKLab (L, a, b).
-     *
-     * @return A new ColorData containing OKLab Cartesian components.
+     * @return new ColorData(L, a, b)
      */
     public ColorData oklchToOklab() {
-        float L = x;
-        float C = y;
-        float Hdeg = z;
+        float hRad = (float) Math.toRadians(z);
+        float a = y * (float) Math.cos(hRad);
+        float b = y * (float) Math.sin(hRad);
         
-        float hRad = (float)Math.toRadians(Hdeg);
-        float a = C * (float)Math.cos(hRad);
-        float b = C * (float)Math.sin(hRad);
-        
-        return new ColorData(L, a, b);
+        return new ColorData(x, a, b);
+    }
+
+    /**
+     * Convert this OKLCh to linear sRGB with closest-fallback by chroma.
+     *
+     * @return new ColorData(rLin, gLin, bLin) in [0..1] linear sRGB
+     */
+    public ColorData oklchToRgb() {
+        float originalC = y;
+        float low = 0f, high = originalC, mid;
+        ColorData candidate;
+
+        for (int i = 0; i < maxFallbackIterations; i++) {
+            mid = (low + high) * 0.5f;
+            
+            candidate = new ColorData(x, mid, z).oklchToOklab().oklabToRgb(true);
+            
+            if (inGamut(candidate)) {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+
+        return new ColorData(x, low, z).oklchToOklab().oklabToRgb(false);
     }
     
     /**
-     * Converts from OKLab (L, a, b) to linear sRGB [0..1], applying: 1)
-     * OKLab→LMS inverse, 2) cubing, 3) LMS→RGB matrix, 4) sRGB companding, 5)
-     * clamping.
+     * Convert this OKLab color to sRGB.
+     * 
+     * If linear is true, returns straight linear-RGB channels;
+     * otherwise applies the sRGB companding curve and clamps to [0..1].
      *
-     * @return A new ColorData containing sRGB components.
+     * @param linear whether to output linear sRGB (true) or companded sRGB
+     * (false)
+     * @return a new ColorData containing R, G, B channels
      */
-    public ColorData oklabToRgb() {
+    public ColorData oklabToRgb(boolean linear) {
         float l_ = x + 0.3963377774f * y + 0.2158037573f * z;
         float m_ = x - 0.1055613458f * y - 0.0638541728f * z;
         float s_ = x - 0.0894841775f * y - 1.2914855480f * z;
-        
+
         float Lm = l_ * l_ * l_;
         float Mm = m_ * m_ * m_;
         float Sm = s_ * s_ * s_;
-        
-        float rLin =  4.0767416621f * Lm - 3.3077115901f * Mm + 0.2309699292f * Sm;
+
+        float rLin = 4.0767416621f * Lm - 3.3077115901f * Mm + 0.2309699292f * Sm;
         float gLin = -1.2684380046f * Lm + 2.6097574011f * Mm - 0.3413193965f * Sm;
         float bLin = -0.0041960863f * Lm - 0.7034186147f * Mm + 1.7076147010f * Sm;
-        
-        float r = compand(rLin);
-        float g = compand(gLin);
-        float b = compand(bLin);
-        
-        return new ColorData(clamp01(r), clamp01(g), clamp01(b));
+
+        if (linear) {
+            return new ColorData(rLin, gLin, bLin);
+        }
+
+        return new ColorData(clamp01(compand(rLin)), clamp01(compand(gLin)), clamp01(compand(bLin)));
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Private Helpers
+    // ────────────────────────────────────────────────────────────────────────────
+
+    private boolean inGamut(ColorData c) {
+        return c.x >= 0f && c.x <= 1f
+            && c.y >= 0f && c.y <= 1f
+            && c.z >= 0f && c.z <= 1f;
     }
 
     private static float invCompand(float c) {
-        return c <= 0.04045f ? c / 12.92f : (float)Math.pow((c + 0.055f) / 1.055f, 2.4f);
+        if (Math.abs(c) <= 0.04045f) return c / 12.92f;
+        
+        return Math.signum(c) * (float) Math.pow((Math.abs(c) + 0.055f) / 1.055f, 2.4f);
     }
-    
+
     private static float compand(float c) {
         if (c <= 0f) return 0f;
+        
         if (c < 0.0031308f) return 12.92f * c;
         
-        return 1.055f * (float)Math.pow(c, 1.0/2.4) - 0.055f;
+        return 1.055f * (float) Math.pow(c, 1.0 / 2.4) - 0.055f;
     }
-    
+
     private static float clamp01(float v) {
         return Math.max(0f, Math.min(1f, v));
     }

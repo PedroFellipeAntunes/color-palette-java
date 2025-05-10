@@ -8,6 +8,7 @@ import Palette.PatternToImage;
 
 import Windows.Components.ButtonPanel;
 import Windows.Components.SliderPanel;
+import Windows.Components.TopButtonPanel;
 
 import javax.swing.*;
 import java.awt.*;
@@ -30,9 +31,11 @@ public class PaletteChangerWindow extends JDialog {
     
     private final BufferedImage image;
     private final String filePath;
-
+    
+    private TopButtonPanel topPanel;
     private ButtonPanel buttonPanel;
     private SliderPanel sliderPanel;
+    
     private int currentIndex = 0;
 
     public PaletteChangerWindow(ColorData[] initialData, BufferedImage image, String filePath) {
@@ -41,10 +44,10 @@ public class PaletteChangerWindow extends JDialog {
         this.filePath = filePath;
 
         ranges[0] = new ChannelRange(0.0f, 1.0f, 0.01f);
-        ranges[1] = new ChannelRange(0.0f, 0.4f, 0.01f);
+        ranges[1] = new ChannelRange(0.0f, 0.37f, 0.01f);
         ranges[2] = new ChannelRange(0.0f, 360.0f, 1.0f);
 
-        this.palette = new Palette(initialData, ranges, 3);
+        this.palette = new Palette(initialData, ranges, 4);
         
         initFrame();
         initComponents();
@@ -52,12 +55,13 @@ public class PaletteChangerWindow extends JDialog {
         initListeners();
         loadColorIntoControls(0);
         setupKeyBindings();
+        setResizable(false);
         setVisible(true);
     }
 
     private void initFrame() {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setSize(700, 500);
+        setSize(750, 500);
         setLocationRelativeTo(null);
         getContentPane().setBackground(BG_COLOR);
         setLayout(new MigLayout("insets 0, gap 0, fill", "[grow]", "[grow 0][grow 1]"));
@@ -74,59 +78,32 @@ public class PaletteChangerWindow extends JDialog {
     }
     
     private void initLayout() {
-        JPanel top = createTopPanel();
-        add(top, "cell 0 0, growx");
+        String[] btnNames = {"Next", "Generate", "Generate Lerp",
+                "Random", "Random All", "Invert",
+                "Reset", "Reset All", "Return"};
+        
+        topPanel = new TopButtonPanel(
+                btnNames[0], btnNames[1], btnNames[2],
+                btnNames[3], btnNames[4], btnNames[5],
+                btnNames[6], btnNames[7], btnNames[8]
+        );
+
+        topPanel.addButtonListener(btnNames[0], e -> onNext());
+        topPanel.addButtonListener(btnNames[1], e -> onGenerate());
+        topPanel.addButtonListener(btnNames[2], e -> onGenerateInterpolated());
+        topPanel.addButtonListener(btnNames[3], e -> onRandom());
+        topPanel.addButtonListener(btnNames[4], e -> onFullRandom());
+        topPanel.addButtonListener(btnNames[5], e -> onInvert());
+        topPanel.addButtonListener(btnNames[6], e -> onReset());
+        topPanel.addButtonListener(btnNames[7], e -> onResetAll());
+        topPanel.addButtonListener(btnNames[8], e -> onReturn());
+
+        add(topPanel, "cell 0 0, growx");
 
         JPanel control = new JPanel(new MigLayout("insets 0, gap 0, fill", "[grow 3][grow 1]", "[grow]"));
         control.add(buttonPanel, "cell 0 0, grow");
         control.add(sliderPanel, "cell 1 0, grow");
         add(control, "cell 0 1, grow");
-    }
-    
-    private JPanel createTopPanel() {
-        JPanel p = new JPanel(new MigLayout("insets 10, gapx 20, align center"));
-        p.setBackground(BG_COLOR);
-        
-        JButton next = createButton("Next");
-        JButton generate = createButton("Generate");
-        JButton rand = createButton("Random");
-        JButton trueRand = createButton("Random All");
-        JButton invert = createButton("Invert");
-        JButton reset = createButton("Reset");
-        JButton resetAll = createButton("Reset All");
-        JButton ret = createButton("Return");
-        
-        next.addActionListener(e -> onNext());
-        generate.addActionListener(e -> onGenerate());
-        rand.addActionListener(e -> onRandom());
-        trueRand.addActionListener(e -> onFullRandom());
-        invert.addActionListener(e -> onInvert());
-        reset.addActionListener(e -> onReset());
-        resetAll.addActionListener(e -> onResetAll());
-        ret.addActionListener(e -> onReturn());
-        
-        p.add(next);
-        p.add(generate);
-        p.add(rand);
-        p.add(trueRand);
-        p.add(invert);
-        p.add(reset);
-        p.add(resetAll);
-        p.add(ret);
-        
-        return p;
-    }
-    
-    private JButton createButton(String text) {
-        JButton btn = new JButton(text);
-        
-        btn.setBorder(BorderFactory.createLineBorder(FG_COLOR));
-        btn.setForeground(FG_COLOR);
-        btn.setBackground(BG_COLOR);
-        btn.setFocusPainted(false);
-        btn.setPreferredSize(new Dimension(btn.getPreferredSize().width + 10, 30));
-        
-        return btn;
     }
     
     private void initListeners() {
@@ -152,14 +129,25 @@ public class PaletteChangerWindow extends JDialog {
     }
     
     private void onNext() {
+        long startTime = System.currentTimeMillis();
+        System.out.println("Applying Palette to Image");
+        
         PatternToImage pti = new PatternToImage();
         BufferedImage output = pti.applyPattern(image, palette.getOriginal(), palette.getData());
+        
+        long endTime = System.currentTimeMillis();
+        System.out.println("TIME: " + (endTime - startTime) + "ms");
         
         ImageViewer iv = new ImageViewer(output, filePath);
     }
     
     private void onGenerate() {
         palette.generate();
+        update();
+    }
+    
+    private void onGenerateInterpolated() {
+        palette.generateInterpolated();
         update();
     }
     
@@ -207,10 +195,7 @@ public class PaletteChangerWindow extends JDialog {
     }
 
     private void updateButtonColor(int idx) {
-        ColorData cd = palette.getData()[idx];
-        
-        int[] rgb = cd.oklchToOklab().oklabToRgb().toRgb255();
-        buttonPanel.updateColor(new Color(rgb[0], rgb[1], rgb[2]), idx);
+        buttonPanel.updateColor(palette.toAwtColor(idx), idx);
     }
     
     private void setupKeyBindings() {

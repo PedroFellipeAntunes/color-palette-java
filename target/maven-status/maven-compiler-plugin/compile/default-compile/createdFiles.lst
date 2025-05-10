@@ -1,4 +1,5 @@
 Windows/PaletteChangerWindow$2.class
+Windows/Components/TopButtonPanel.class
 Util/Main.class
 Windows/Components/ButtonPanel.class
 Windows/Components/SliderPanel.class

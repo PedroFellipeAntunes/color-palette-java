@@ -13,8 +13,12 @@ public class PatternToImage {
         int[][] nw = new int[originalPattern.length][];
         
         for (int i = 0; i < originalPattern.length; i++) {
-            og[i] = originalPattern[i].oklchToOklab().oklabToRgb(); // Keep it normalized
-            nw[i] = newPattern[i].oklchToOklab().oklabToRgb().toRgb255();
+            // Keep it normalized and use simple conversion
+            // Simple clamping when outside gammut
+            og[i] = originalPattern[i].oklchToOklab().oklabToRgb(false); // Non-linear
+            
+            // Conversion with gammut fallback
+            nw[i] = newPattern[i].oklchToRgb().toRgb255();
         }
         
         for (int y = 0; y < image.getHeight(); y++) {

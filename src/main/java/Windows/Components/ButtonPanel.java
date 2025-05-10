@@ -9,6 +9,7 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.border.StrokeBorder;
 
 import net.miginfocom.swing.MigLayout;
 
@@ -24,8 +25,9 @@ public class ButtonPanel extends JPanel {
     
     private final Color[] initialColors;
     
+    private final int borderThickness = 3;
+    private final float[] dashPattern = new float[] {5f, 5f};
     private final Border defaultBorder = BorderFactory.createEmptyBorder();
-    private final Border selectBorder = BorderFactory.createLineBorder(Color.RED, 3);
     
     private final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
     
@@ -54,8 +56,10 @@ public class ButtonPanel extends JPanel {
         btn.setFocusPainted(false);
         btn.setBackground(initialColors[idx]);
         
-        if (idx == this.selectedIndex) {
-            btn.setBorder(selectBorder);
+        if (idx == selectedIndex) {
+            Color bg = btn.getBackground();
+            Color inverse = new Color(255 - bg.getRed(), 255 - bg.getGreen(), 255 - bg.getBlue());
+            btn.setBorder(BorderFactory.createLineBorder(inverse, borderThickness));
         } else {
             btn.setBorder(defaultBorder);
         }
@@ -71,13 +75,23 @@ public class ButtonPanel extends JPanel {
             @Override
             public void mouseEntered(MouseEvent e) {
                 Color bg = btn.getBackground();
+                
                 Color inverse = new Color(255 - bg.getRed(), 255 - bg.getGreen(), 255 - bg.getBlue());
-                btn.setBorder(BorderFactory.createLineBorder(inverse, 3));
+                BasicStroke bs = new BasicStroke(borderThickness, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1.0f, dashPattern, 0f);
+                Border dashedInverse = new StrokeBorder(bs, inverse);
+                
+                btn.setBorder(dashedInverse);
             }
             
             @Override
             public void mouseExited(MouseEvent e) {
-                btn.setBorder(idx == selectedIndex ? selectBorder : defaultBorder);
+                if (idx == selectedIndex) {
+                    Color bg = btn.getBackground();
+                    Color inverse = new Color(255 - bg.getRed(), 255 - bg.getGreen(), 255 - bg.getBlue());
+                    btn.setBorder(BorderFactory.createLineBorder(inverse, borderThickness));
+                } else {
+                    btn.setBorder(defaultBorder);
+                }
             }
         });
 
@@ -93,7 +107,9 @@ public class ButtonPanel extends JPanel {
             }
             
             selectedIndex = idx;
-            btn.setBorder(selectBorder);
+            Color bg = btn.getBackground();
+            Color inverse = new Color(255 - bg.getRed(), 255 - bg.getGreen(), 255 - bg.getBlue());
+            btn.setBorder(BorderFactory.createLineBorder(inverse, borderThickness));
             
             pcs.firePropertyChange("selectedIndex", old, idx);
         });
@@ -160,7 +176,11 @@ public class ButtonPanel extends JPanel {
         buttons.get(old).setBorder(defaultBorder);
 
         selectedIndex = next;
-        buttons.get(selectedIndex).setBorder(selectBorder);
+        
+        Color bg = buttons.get(selectedIndex).getBackground();
+        Color inverse = new Color(255 - bg.getRed(), 255 - bg.getGreen(), 255 - bg.getBlue());
+        buttons.get(selectedIndex).setBorder(BorderFactory.createLineBorder(inverse, borderThickness));
+        
         pcs.firePropertyChange("selectedIndex", old, selectedIndex);
     }
 
