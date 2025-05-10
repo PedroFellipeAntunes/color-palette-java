@@ -50,6 +50,11 @@ public class ColorData {
     public void setY(float y) { this.y = y; }
     public void setZ(float z) { this.z = z; }
 
+    @Override
+    public String toString() {
+        return "[" + "x:" + x + ", y:" + y + ", z:" + z + ']';
+    }
+    
     // ────────────────────────────────────────────────────────────────────────────
     // Conversion Methods
     // ────────────────────────────────────────────────────────────────────────────
@@ -99,7 +104,8 @@ public class ColorData {
      * @return new ColorData(L, C, H in degrees)
      */
     public ColorData oklabToOklch() {
-        float C = Math.min((float) Math.hypot(y, z), 0.37f);
+//        float C = Math.min((float) Math.hypot(y, z), 0.37f);
+        float C = Math.min((float) Math.hypot(y, z), 0.47f);
         float hRad = (float) Math.atan2(z, y);
         float H = (hRad >= 0f
             ? (float) Math.toDegrees(hRad)
@@ -130,7 +136,7 @@ public class ColorData {
         float originalC = y;
         float low = 0f, high = originalC, mid;
         ColorData candidate;
-
+        
         for (int i = 0; i < maxFallbackIterations; i++) {
             mid = (low + high) * 0.5f;
             

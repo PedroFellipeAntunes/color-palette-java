@@ -10,6 +10,7 @@ public class Palette {
     private final ChannelRange[] ranges;
     
     private final int modeQuantity;
+    private final float maxOffset;
     
     /**
      * Create a new Palette from initial colors, channel ranges, and a maximum
@@ -36,6 +37,14 @@ public class Palette {
         
         this.ranges = ranges;
         this.modeQuantity = modeQuantity;
+        this.maxOffset = computeMaxOffset(data.length);
+        System.out.println("MAXOFFSET:"+this.maxOffset);
+    }
+    
+    private float computeMaxOffset(int n) {
+        float step = 1f / (n - 1f);
+        
+        return Math.min(0.33f, step * 0.5f);
     }
     
     /**
@@ -51,8 +60,14 @@ public class Palette {
         int maxModes = Math.min(modeQuantity, n);
         int modes = rnd.nextInt(1, maxModes + 1);
         
+        // Pick a single random offset for L, to avoid colors which are fully
+        // black (L=0) or fully white (L=1)
+        float lOffset = rnd.nextFloat(0f, maxOffset);
+        float lRange = 1f - 2f * lOffset;
+        
         float hueStart = rnd.nextFloat(0f, 360f);
         
+        // Prepare an array of evenly spaced hue values around the circle
         float[] hues = new float[modes];
         
         boolean clockwise = rnd.nextBoolean();
@@ -71,19 +86,26 @@ public class Palette {
             }
         }
         
+        // Determine how many colors each mode will get
         int baseSize = n / modes;
         int remainder = n % modes;
         
         float chroma = rnd.nextFloat(ranges[1].getMin(), ranges[1].getMax());
         int index = 0;
         
+        // Fill in each ColorData with Z=Hue, Y=Chroma and X=L interpolated
+        // across the whole array
         for (int m = 0; m < modes; m++) {
+            // Distribute the “extra” one-per-mode until remainder is exhausted
             int blockSize = baseSize + (m < remainder ? 1 : 0);
             
-            for (int j = 0; j < blockSize; j++) {
-                ColorData cd = data[index++];
+            for (int j = 0; j < blockSize; j++, index++) {
+                ColorData cd = data[index];
                 cd.setZ(hues[m]);
                 cd.setY(chroma);
+                
+                float t = (float) index / (n - 1);
+                cd.setX(lOffset + t * lRange);
             }
         }
     }
@@ -105,6 +127,10 @@ public class Palette {
         int maxModes = Math.min(n, modeQuantity);
         int modes = rnd.nextInt(1, maxModes + 1);
         
+        float dynamicMaxOffset = computeMaxOffset(n);
+        float lOffset = rnd.nextFloat(0f, dynamicMaxOffset);
+        float lRange = 1f - 2f * lOffset;
+        
         float chroma = rnd.nextFloat(ranges[1].getMin(), ranges[1].getMax());
         
         float hueStart = rnd.nextFloat(0f, 360f);
@@ -119,47 +145,49 @@ public class Palette {
             keyHues[i] = ((raw % 360f) + 360f) % 360f;
         }
         
+        // If there’s only one hue mode, interpolate L across the whole array
+        // but keep hue/chroma fixed
         if (modes == 1) {
             for (int i = 0; i < n; i++) {
                 data[i].setY(chroma);
                 data[i].setZ(keyHues[0]);
+                
+                float t = (float) i / (n - 1);
+                data[i].setX(lOffset + t * lRange);
             }
             
             return;
         }
         
+        // Compute integer positions of each key hue in the array
         int[] keyPos = new int[modes];
         
         for (int i = 0; i < modes; i++) {
             float p = i * (n - 1f) / (modes - 1f);
-            
             keyPos[i] = Math.round(p);
-        }
-        
-        for (int i = 0; i < modes; i++) {
-            int pos = keyPos[i];
             
-            data[pos].setY(chroma);
-            data[pos].setZ(keyHues[i]);
+            // Also assign the L value at each key position
+            float keyL = lOffset + ((float) i / (modes - 1)) * lRange;
+            
+            data[keyPos[i]].setY(chroma);
+            data[keyPos[i]].setZ(keyHues[i]);
+            data[keyPos[i]].setX(keyL);
         }
         
+        // Interpolate between each pair of key points in OKLab space,
+        // then convert back to OKLCh for storing in data[]
         for (int seg = 0; seg < modes - 1; seg++) {
-            int startIdx = keyPos[seg];
-            int endIdx = keyPos[seg + 1];
-            int span = endIdx - startIdx;
-
+            int start = keyPos[seg], end = keyPos[seg + 1], span = end - start;
+            
             ColorData labStart = new ColorData(
-                    data[startIdx].getX(),
-                    data[startIdx].getY(),
-                    data[startIdx].getZ()
+                    data[start].getX(), data[start].getY(), data[start].getZ()
             ).oklchToOklab();
             
             ColorData labEnd = new ColorData(
-                    data[endIdx].getX(),
-                    data[endIdx].getY(),
-                    data[endIdx].getZ()
+                    data[end].getX(), data[end].getY(), data[end].getZ()
             ).oklchToOklab();
-
+            
+            // Interpolate each channel L, a, b in OKLab
             for (int j = 1; j < span; j++) {
                 float t = (float) j / span;
                 
@@ -167,14 +195,13 @@ public class Palette {
                 float a = labStart.getY() + t * (labEnd.getY() - labStart.getY());
                 float b = labStart.getZ() + t * (labEnd.getZ() - labStart.getZ());
                 
-                ColorData interpolated = new ColorData(L, a, b)
-                        .oklabToOklch();
+                ColorData interp = new ColorData(L, a, b).oklabToOklch();
                 
-                int idx = startIdx + j;
+                int idx = start + j;
                 
-                data[idx].setX(interpolated.getX());
-                data[idx].setY(interpolated.getY());
-                data[idx].setZ(interpolated.getZ());
+                data[idx].setX(interp.getX());
+                data[idx].setY(interp.getY());
+                data[idx].setZ(interp.getZ());
             }
         }
     }

@@ -17,6 +17,8 @@ import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.beans.PropertyChangeListener;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import net.miginfocom.swing.MigLayout;
 
@@ -37,6 +39,70 @@ public class PaletteChangerWindow extends JDialog {
     private SliderPanel sliderPanel;
     
     private int currentIndex = 0;
+    
+    // Top panel buttons
+    private final Action nextAction = new AbstractAction("Next") {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            onNext();
+        }
+    };
+    
+    private final Action genAction = new AbstractAction("Simple") {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            onGenerate();
+        }
+    };
+    
+    private final Action lerpAction = new AbstractAction("Lerp") {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            onGenerateInterpolated();
+        }
+    };
+    
+    private final Action randomAction = new AbstractAction("Single") {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            onRandom();
+        }
+    };
+
+    private final Action randomAllAction = new AbstractAction("All") {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            onFullRandom();
+        }
+    };
+
+    private final Action invertAction = new AbstractAction("Invert") {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            onInvert();
+        }
+    };
+
+    private final Action resetAction = new AbstractAction("Single") {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            onReset();
+        }
+    };
+
+    private final Action resetAllAction = new AbstractAction("All") {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            onResetAll();
+        }
+    };
+
+    private final Action returnAction = new AbstractAction("Return") {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            onReturn();
+        }
+    };
 
     public PaletteChangerWindow(ColorData[] initialData, BufferedImage image, String filePath) {
         super((Frame) null, "Choose palette colors", true);
@@ -44,7 +110,7 @@ public class PaletteChangerWindow extends JDialog {
         this.filePath = filePath;
 
         ranges[0] = new ChannelRange(0.0f, 1.0f, 0.01f);
-        ranges[1] = new ChannelRange(0.0f, 0.37f, 0.01f);
+        ranges[1] = new ChannelRange(0.0f, 0.47f, 0.01f);
         ranges[2] = new ChannelRange(0.0f, 360.0f, 1.0f);
 
         this.palette = new Palette(initialData, ranges, 4);
@@ -78,26 +144,15 @@ public class PaletteChangerWindow extends JDialog {
     }
     
     private void initLayout() {
-        String[] btnNames = {"Next", "Generate", "Generate Lerp",
-                "Random", "Random All", "Invert",
-                "Reset", "Reset All", "Return"};
+        Map<String, Action[]> groups = new LinkedHashMap<>();
         
-        topPanel = new TopButtonPanel(
-                btnNames[0], btnNames[1], btnNames[2],
-                btnNames[3], btnNames[4], btnNames[5],
-                btnNames[6], btnNames[7], btnNames[8]
-        );
-
-        topPanel.addButtonListener(btnNames[0], e -> onNext());
-        topPanel.addButtonListener(btnNames[1], e -> onGenerate());
-        topPanel.addButtonListener(btnNames[2], e -> onGenerateInterpolated());
-        topPanel.addButtonListener(btnNames[3], e -> onRandom());
-        topPanel.addButtonListener(btnNames[4], e -> onFullRandom());
-        topPanel.addButtonListener(btnNames[5], e -> onInvert());
-        topPanel.addButtonListener(btnNames[6], e -> onReset());
-        topPanel.addButtonListener(btnNames[7], e -> onResetAll());
-        topPanel.addButtonListener(btnNames[8], e -> onReturn());
-
+        groups.put("Generation", new Action[]{genAction, lerpAction, invertAction});
+        groups.put("Random", new Action[]{randomAction, randomAllAction});
+        groups.put("Reset", new Action[]{resetAction, resetAllAction});
+        groups.put("Navigation", new Action[]{nextAction, returnAction});
+        
+        topPanel = new TopButtonPanel(groups);
+        
         add(topPanel, "cell 0 0, growx");
 
         JPanel control = new JPanel(new MigLayout("insets 0, gap 0, fill", "[grow 3][grow 1]", "[grow]"));
@@ -242,6 +297,16 @@ public class PaletteChangerWindow extends JDialog {
             @Override
             public void actionPerformed(ActionEvent e) {
                 onReset();
+            }
+        });
+        
+        // Reset all color binding
+        KeyStroke resetAll = KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, InputEvent.CTRL_DOWN_MASK);
+        im.put(resetAll, "resetAllColor");
+        am.put("resetAllColor", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                onResetAll();
             }
         });
         
