@@ -34,4 +34,3 @@ A Java Maven application (NetBeans/Swing) for quantizing images and interactivel
 
 ## **TODO**
 Add text area with the HEX code of the current selected color  
-Add button to use interpolated palette generation
