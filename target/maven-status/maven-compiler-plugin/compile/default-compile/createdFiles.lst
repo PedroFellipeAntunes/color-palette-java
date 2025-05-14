@@ -1,3 +1,4 @@
+Windows/Components/HexInputPanel$1.class
 Windows/PaletteChangerWindow$16.class
 Windows/PaletteChangerWindow$2.class
 Windows/PaletteChangerWindow$9.class
@@ -17,6 +18,7 @@ Palette/PatternToImage.class
 Windows/PaletteChangerWindow$8.class
 Windows/PaletteChangerWindow$3.class
 Windows/PaletteChangerWindow$15.class
+Windows/Components/HexInputPanel$2.class
 Windows/PaletteChangerWindow$10.class
 Windows/PaletteChangerWindow$17.class
 FileManager/PngReader.class
@@ -24,6 +26,7 @@ Windows/PaletteChangerWindow$1.class
 FileManager/Grayscale.class
 Data/Palette.class
 Windows/PaletteChangerWindow$6.class
+Windows/Components/HexInputPanel.class
 Windows/DropDownWindow.class
 Data/ColorData.class
 Windows/PaletteChangerWindow$12.class

@@ -8,14 +8,14 @@ import java.util.Map;
 import net.miginfocom.swing.MigLayout;
 
 public class TopButtonPanel extends JPanel {
-    public static final Color BACKGROUND_COLOR   = Color.BLACK;
-    public static final Color GROUP_BG_COLOR     = Color.BLACK;
-    public static final Color BUTTON_BG_COLOR    = Color.BLACK;
-    public static final Color BORDER_AND_TEXT    = Color.WHITE;
-    public static final int   PANEL_INSET        = 10;
-    public static final int   GROUP_INSET        = 5;
-    public static final int   BUTTON_HEIGHT      = 30;
-    public static final int   BUTTON_PADDING_X   = 10;
+    public static final Color BACKGROUND_COLOR = Color.BLACK;
+    public static final Color GROUP_BG_COLOR = Color.BLACK;
+    public static final Color BUTTON_BG_COLOR = Color.BLACK;
+    public static final Color BORDER_AND_TEXT = Color.WHITE;
+    public static final int PANEL_INSET = 10;
+    public static final int GROUP_INSET = 5;
+    public static final int BUTTON_HEIGHT = 30;
+    public static final int BUTTON_PADDING_X = 10;
     
     /**
      * Constructs a TopButtonPanel that organizes multiple action groups into

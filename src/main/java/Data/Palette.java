@@ -313,6 +313,67 @@ public class Palette {
         return new Color(rgb[0], rgb[1], rgb[2]);
     }
     
+    /**
+     * Converts the color at the specified index from OKLCH to an RGB hex
+     * string.
+     *
+     * @param index the index of the color in the palette array
+     * @return the color as a hexadecimal string in the format "#RRGGBB"
+     */
+    public String rgbToHex(int index) {
+        int[] rgb = data[index].oklchToRgb().toRgb255();
+        
+        return String.format("#%02X%02X%02X", rgb[0], rgb[1], rgb[2]);
+    }
+    
+    /**
+     * Builds a bracketed list containing the hexadecimal representation of
+     * every color in the palette.
+     *
+     * @return a string in the format "[#RRGGBB,#RRGGBB,…]" representing the
+     * full palette
+     */
+    public String paletteToHex() {
+        String hexPalette = "[";
+        
+        for (int i = 0; i < data.length; i++) {
+            int[] rgb = data[i].oklchToRgb().toRgb255();
+            
+            hexPalette += String.format("#%02X%02X%02X", rgb[0], rgb[1], rgb[2]);
+            
+            if (i < data.length - 1) {
+                hexPalette += ",";
+            }
+        }
+        
+        hexPalette += "]";
+        
+        return hexPalette;
+    }
+    
+    /**
+     * Parses the given hexadecimal string and updates the color at the
+     * specified index in the palette, converting from RGB into OKLCH.
+     *
+     * @param hex the hexadecimal color string (with or without leading '#')
+     * @param index the index in the palette array to update
+     * @throws IllegalArgumentException if the hex string is not exactly six
+     * hexadecimal digits
+     */
+    public void hexToRgb(String hex, int index) {
+        String h = hex.startsWith("#") ? hex.substring(1) : hex;
+        
+        if (h.length() != 6) {
+            throw new IllegalArgumentException("Hex must be 6 digits: " + hex);
+        }
+        
+        int r = Integer.parseInt(h.substring(0, 2), 16);
+        int g = Integer.parseInt(h.substring(2, 4), 16);
+        int b = Integer.parseInt(h.substring(4, 6), 16);
+        
+        data[index] = new ColorData(r, g, b).rgbToOklab().oklabToOklch();
+    }
+    
     public ColorData[] getData() {
         return data;
     }

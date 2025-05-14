@@ -7,11 +7,13 @@ import Data.Palette;
 import Palette.PatternToImage;
 
 import Windows.Components.ButtonPanel;
+import Windows.Components.HexInputPanel;
 import Windows.Components.SliderPanel;
 import Windows.Components.TopButtonPanel;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
@@ -37,6 +39,7 @@ public class PaletteChangerWindow extends JDialog {
     private TopButtonPanel topPanel;
     private ButtonPanel buttonPanel;
     private SliderPanel sliderPanel;
+    private HexInputPanel hexPanel;
     
     private int currentIndex = 0;
     
@@ -141,23 +144,48 @@ public class PaletteChangerWindow extends JDialog {
         
         sliderPanel = new SliderPanel(init, ranges);
         sliderPanel.setLabels("L", "C", "H");
+        
+        // get initial hex from the first color
+        String initialHex = palette.rgbToHex(0);
+        hexPanel = new HexInputPanel(initialHex);
     }
     
     private void initLayout() {
         Map<String, Action[]> groups = new LinkedHashMap<>();
-        
+
         groups.put("Generation", new Action[]{genAction, lerpAction, invertAction});
         groups.put("Random", new Action[]{randomAction, randomAllAction});
         groups.put("Reset", new Action[]{resetAction, resetAllAction});
         groups.put("Navigation", new Action[]{nextAction, returnAction});
-        
-        topPanel = new TopButtonPanel(groups);
-        
-        add(topPanel, "cell 0 0, growx");
 
-        JPanel control = new JPanel(new MigLayout("insets 0, gap 0, fill", "[grow 3][grow 1]", "[grow]"));
-        control.add(buttonPanel, "cell 0 0, grow");
-        control.add(sliderPanel, "cell 1 0, grow");
+        topPanel = new TopButtonPanel(groups);
+        add(topPanel, "cell 0 0, growx");
+        
+        // Main control container: two columns
+        JPanel control = new JPanel(new MigLayout(
+                "insets 0, gap 0, fill",
+                "[45%][55%]",
+                "[grow]"
+        ));
+
+        // Left sub-panel
+        JPanel leftPanel = new JPanel(new MigLayout("insets 0, gap 0, fill"));
+        leftPanel.setBackground(getContentPane().getBackground());
+        leftPanel.add(buttonPanel, "grow, push");
+        control.add(leftPanel, "cell 0 0, grow");
+        
+        // Right sub-panel: two rows—hex input above sliders
+        JPanel rightPanel = new JPanel(new MigLayout(
+                "insets 0, gap 4, fill",
+                "[grow]",
+                "[pref][grow]"
+        ));
+        rightPanel.setBackground(getContentPane().getBackground());
+        
+        rightPanel.add(hexPanel, "cell 0 0, growx, wrap");
+        rightPanel.add(sliderPanel, "cell 0 1, grow");
+        control.add(rightPanel, "cell 1 0, grow");
+        
         add(control, "cell 0 1, grow");
     }
     
@@ -166,6 +194,7 @@ public class PaletteChangerWindow extends JDialog {
             currentIndex = (Integer) evt.getNewValue();
             
             loadColorIntoControls(currentIndex);
+            changeHexValue(currentIndex);
         });
         
         PropertyChangeListener sliderListener = evt -> {
@@ -176,11 +205,27 @@ public class PaletteChangerWindow extends JDialog {
             cd.setZ(sliderPanel.getPanelZ());
             
             updateButtonColor(currentIndex);
+            changeHexValue(currentIndex);
         };
         
         sliderPanel.addPropertyChangeListener(SliderPanel.PROP_X, sliderListener);
         sliderPanel.addPropertyChangeListener(SliderPanel.PROP_Y, sliderListener);
         sliderPanel.addPropertyChangeListener(SliderPanel.PROP_Z, sliderListener);
+        
+        hexPanel.addPropertyChangeListener(HexInputPanel.PROP_HEX, evt -> {
+            String newHex = (String) evt.getNewValue();
+            palette.hexToRgb(newHex, currentIndex);
+            
+            updateButtonColor(currentIndex);
+            loadColorIntoControls(currentIndex);
+        });
+        
+        hexPanel.getCopyButton().addActionListener(e -> {
+            String allHex = palette.paletteToHex();
+            
+            StringSelection selection = new StringSelection(allHex);
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+        });
     }
     
     private void onNext() {
@@ -198,12 +243,12 @@ public class PaletteChangerWindow extends JDialog {
     
     private void onGenerate() {
         palette.generate();
-        update();
+        updateAll();
     }
     
     private void onGenerateInterpolated() {
         palette.generateInterpolated();
-        update();
+        updateAll();
     }
     
     private void onRandom() {
@@ -213,23 +258,22 @@ public class PaletteChangerWindow extends JDialog {
     
     private void onFullRandom() {
         palette.randomAll();
-        update();
+        updateAll();
     }
     
     private void onReset() {
         palette.reset(currentIndex);
-        updateButtonColor(currentIndex);
-        loadColorIntoControls(currentIndex);
+        update();
     }
     
     private void onResetAll() {
         palette.resetAll();
-        update();
+        updateAll();
     }
 
     private void onInvert() {
         palette.invert();
-        update();
+        updateAll();
     }
     
     private void onReturn() {
@@ -237,8 +281,19 @@ public class PaletteChangerWindow extends JDialog {
     }
     
     private void update() {
+        updateButtonColor(currentIndex);
+        loadColorIntoControls(currentIndex);
+        changeHexValue(currentIndex);
+    }
+    
+    private void updateAll() {
         buttonPanel.updateColors(palette.toAwtColors());
         loadColorIntoControls(currentIndex);
+        changeHexValue(currentIndex);
+    }
+    
+    private void changeHexValue(int idx) {
+        hexPanel.setHex(palette.rgbToHex(idx));
     }
     
     private void loadColorIntoControls(int idx) {
@@ -285,7 +340,7 @@ public class PaletteChangerWindow extends JDialog {
                     target.setY(clipboardColor.getY());
                     target.setZ(clipboardColor.getZ());
                     
-                    update();
+                    updateAll();
                 }
             }
         });
