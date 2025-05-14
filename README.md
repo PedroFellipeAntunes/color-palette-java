@@ -31,6 +31,3 @@ A Java Maven application (NetBeans/Swing) for quantizing images and interactivel
   - Saved output named `palette[color_quantity].png` in source folder  
 
 ---
-
-## **TODO**
-Add text area with the HEX code of the current selected color  
