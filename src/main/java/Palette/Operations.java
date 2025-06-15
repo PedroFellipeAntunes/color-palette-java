@@ -1,7 +1,7 @@
 package Palette;
 
 import Data.ColorData;
-import Dither.Quantization;
+import Dither.RgbQuantization;
 
 import FileManager.PngReader;
 import FileManager.PngSaver;
@@ -24,7 +24,7 @@ public class Operations {
         
         // Quantize image
         System.out.println("Quantization Grayscale Image");
-        Quantization band = new Quantization();
+        RgbQuantization band = new RgbQuantization();
         band.applyQuantization(image, colorLevels, rangeQ);
         
         long endTime = System.currentTimeMillis();

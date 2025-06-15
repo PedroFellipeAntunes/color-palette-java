@@ -62,8 +62,27 @@ public class Palette {
         
         // Pick a single random offset for L, to avoid colors which are fully
         // black (L=0) or fully white (L=1)
-        float lOffset = rnd.nextFloat(0f, maxOffset);
-        float lRange = 1f - 2f * lOffset;
+//        float lOffset = rnd.nextFloat(0f, maxOffset);
+//        float lRange = 1f - 2f * lOffset;
+        float lMin = rnd.nextFloat(0f, 1f);
+        float lMax = rnd.nextFloat(0f, 1f);
+        
+        if (lMin > lMax) {
+            float tmp = lMin;
+            
+            lMin = lMax;
+            lMax = tmp;
+        }
+        
+        if (lMax - lMin < 0.25f) {
+            if (lMax + 0.25f <= 1f) {
+                lMax += 0.25f;
+            } else {
+                lMin = Math.max(0f, lMin - 0.25f);
+            }
+        }
+        
+        float lRange = lMax - lMin;
         
         float hueStart = rnd.nextFloat(0f, 360f);
         
@@ -105,7 +124,8 @@ public class Palette {
                 cd.setY(chroma);
                 
                 float t = (float) index / (n - 1);
-                cd.setX(lOffset + t * lRange);
+//                cd.setX(lOffset + t * lRange);
+                cd.setX(lMin + t * lRange);
             }
         }
     }
@@ -127,9 +147,28 @@ public class Palette {
         int maxModes = Math.min(n, modeQuantity);
         int modes = rnd.nextInt(1, maxModes + 1);
         
-        float dynamicMaxOffset = computeMaxOffset(n);
-        float lOffset = rnd.nextFloat(0f, dynamicMaxOffset);
-        float lRange = 1f - 2f * lOffset;
+//        float dynamicMaxOffset = computeMaxOffset(n);
+//        float lOffset = rnd.nextFloat(0f, dynamicMaxOffset);
+//        float lRange = 1f - 2f * lOffset;
+        float lMin = rnd.nextFloat(0f, 1f);
+        float lMax = rnd.nextFloat(0f, 1f);
+        
+        if (lMin > lMax) {
+            float tmp = lMin;
+            
+            lMin = lMax;
+            lMax = tmp;
+        }
+        
+        if (lMax - lMin < 0.25f) {
+            if (lMax + 0.25f <= 1f) {
+                lMax += 0.25f;
+            } else {
+                lMin = Math.max(0f, lMin - 0.25f);
+            }
+        }
+        
+        float lRange = lMax - lMin;
         
         float chroma = rnd.nextFloat(ranges[1].getMin(), ranges[1].getMax());
         
@@ -153,7 +192,8 @@ public class Palette {
                 data[i].setZ(keyHues[0]);
                 
                 float t = (float) i / (n - 1);
-                data[i].setX(lOffset + t * lRange);
+//                data[i].setX(lOffset + t * lRange);
+                data[i].setX(lMin + t * lRange);
             }
             
             return;
@@ -167,7 +207,8 @@ public class Palette {
             keyPos[i] = Math.round(p);
             
             // Also assign the L value at each key position
-            float keyL = lOffset + ((float) i / (modes - 1)) * lRange;
+//            float keyL = lOffset + ((float) i / (modes - 1)) * lRange;
+            float keyL = lMin + ((float) i / (modes - 1)) * lRange;
             
             data[keyPos[i]].setY(chroma);
             data[keyPos[i]].setZ(keyHues[i]);

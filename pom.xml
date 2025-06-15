@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>PFCA</groupId>
-  <artifactId>ColorPaletteV2</artifactId>
+  <artifactId>ColorPalette</artifactId>
   <version>1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
@@ -93,4 +93,5 @@
       </plugin>
     </plugins>
   </build>
+    <name>Color Palette</name>
 </project>
